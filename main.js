@@ -9,9 +9,10 @@ pv_cb.addEventListener('change', PvModeToggle);
 pv_btn.addEventListener('click', OnPvBtn);
 rs_btn.addEventListener('click', OnRsBtn);
 
+PvModeToggle();
 
 function PvModeToggle(e){
-  if(e.target.checked){
+  if(pv_cb.checked){
     ta.addEventListener('input', PvBoxAutoInput);
     pv_box.innerHTML = Convert(ta.value);
     pv_btn.disabled = true;
@@ -42,24 +43,36 @@ function OnRsBtn(e){
 
 
 function Convert(txt){
-  let return_txt = '';
-
   const lines = txt.split("\n");
   let blocks = Math.floor(lines.filter((el) => el.startsWith('```')).length / 2);
   let block_type = '';
   let ul_num = 0;
+
+  const regs = [
+    new RegExp('&', 'g'), '&amp;',
+    new RegExp('<', 'g'), '&lt;',
+    new RegExp('>', 'g'), '&gt;',
+    new RegExp('"', 'g'), '&quot;',
+    new RegExp("'", 'g'), '&#39;',
+  ];
+
+  for(let i = 0; i < regs.length; i += 2){
+    txt = txt.replace(regs[i], regs[i + 1]);
+  }
+
+  let pos = txt.indexOf('```');
+  console.log(pos);
+
+
+  txt = txt.replace(/\n/g, '<br>');
+
+  return txt;
 
   for(let t of lines){
     if(!t){
       return_txt += '<br>';
       continue;
     }
-
-    t = t.replace('&', '&amp;');
-    t = t.replace('<', '&lt;');
-    t = t.replace(/>/g, '&gt;');
-    t = t.replace('"', '&quot;');
-    t = t.replace("'", '&#39;');
 
     if(block_type == 'list'){
       if(t.match(/^(\-|\*)\s/)){
