@@ -79,11 +79,8 @@ function Convert(txt){
       temps[i] = temps[i].replace(/\\\*/g, "''");
 
       temps[i] = SandRep(temps[i], '__', /__.+(__)(?!_)/, '<u>', '</u>');
-      console.log(temps[i]);
       temps[i] = SandRep(temps[i], '_', /_.+_(?!_)/, '<i>', '</i>');
-      console.log(temps[i]);
       temps[i] = SandRep(temps[i], '**', /\*\*.+(\*\*)(?!\*)/, '<b>', '</b>');
-      console.log(temps[i]);
       temps[i] = SandRep(temps[i], '*', /\*.+\*(?!\*)/, '<i>', '</i>');
 
       temps[i] = temps[i].replace(/""/g, '_');
@@ -215,7 +212,6 @@ function SandRep(t, st1, st2, rt1, rt2){
 
     if(ss){
       let ss_len = ss.index + ss[0].length;
-      console.log(ss);
 
       t = t.substring(0, ss_len - len)
         + rt2

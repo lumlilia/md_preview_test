@@ -8,6 +8,7 @@ body{
 
 #main{
   margin: auto;
+  margin-bottom: 5em;
 }
 
 #edit_box{
@@ -91,4 +92,14 @@ li{
   left: 100%;
   width: 1em;
   height: 1px;
+}
+
+#copyright{
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  font-size: 0.8em;
+  text-align: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-top: 2px #D0D0D0 solid;
 }
