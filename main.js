@@ -3,7 +3,6 @@ const ta = document.getElementById('ta');
 const pv_cb = document.getElementById('pv_cb');
 const pv_btn = document.getElementById('pv_btn');
 const rs_btn = document.getElementById('rs_btn');
-const cp_btn = document.getElementById('cp_btn');
 
 pv_cb.addEventListener('change', PvModeToggle);
 pv_btn.addEventListener('click', OnPvBtn);
@@ -60,111 +59,178 @@ function Convert(txt){
     txt = txt.replace(regs[i], regs[i + 1]);
   }
 
-  let pos = txt.indexOf('```');
-  console.log(pos);
+  txt = SandRep(txt, '```', new RegExp('```.+```', 's'), '"""', '"""');
 
+  let temps = txt.split('"""');
+  txt = '';
 
-  txt = txt.replace(/\n/g, '<br>');
-
-  return txt;
-
-  for(let t of lines){
-    if(!t){
-      return_txt += '<br>';
+  for(let i = 0; i < temps.length; i++){
+    if(!temps[i]){
+      txt += '<br>';
       continue;
     }
 
-    if(block_type == 'list'){
-      if(t.match(/^(\-|\*)\s/)){
-        if(ul_num == 2){
-          return_txt += '</ul>';
-          ul_num = 1;
-        }
-
-        return_txt += '<li>' + t.substr(2) + '</li>';
-      }
-
-      else if(t.match(/^\s+(\-|\*)\s/)){
-        if(ul_num == 1){
-          return_txt += '<ul>';
-          ul_num = 2;
-        }
-
-        return_txt += '<li>' + t.replace(/^(\s)+(\-|\*)\s/, '') + '</li>';
-      }
-
-      else{
-        while(ul_num){
-          return_txt += '</ul>';
-          ul_num--;
-        }
-
-        block_type = '';
-      }
+    else if(i % 2){
+      txt += '<div class="code_block">' + temps[i].replace(/(?!^.*)\n/g, '<br>') + '</div>';
     }
 
-    if(!block_type){
-      if(t.startsWith('```') && blocks){
-        block_type = 'code';
-        blocks--;
-        return_txt += '<div class="code_block">';
-      }
+    else{
+      temps[i] = temps[i].replace(/\\_/g, '""');
+      temps[i] = temps[i].replace(/\\\*/g, "''");
 
-      else if(t.match(/^#.*\s/)){
-        let n = 0;
+      temps[i] = SandRep(temps[i], '__', /__.+(__)(?!_)/, '<u>', '</u>');
+      console.log(temps[i]);
+      temps[i] = SandRep(temps[i], '_', /_.+_(?!_)/, '<i>', '</i>');
+      console.log(temps[i]);
+      temps[i] = SandRep(temps[i], '**', /\*\*.+(\*\*)(?!\*)/, '<b>', '</b>');
+      console.log(temps[i]);
+      temps[i] = SandRep(temps[i], '*', /\*.+\*(?!\*)/, '<i>', '</i>');
 
-        for(str of t){
-          if(str == '#'){
-            n++;
+      temps[i] = temps[i].replace(/""/g, '_');
+      temps[i] = temps[i].replace(/''/g, "*");
+
+      let lines = temps[i].split("\n");
+      let list_layer = [0, 0];
+      let bq_flag = false;
+      let tag_temp = '';
+
+
+      for(l of lines){
+        let hn = 0;
+        let block_flag = false;
+
+        if(bq_flag){
+          if(!l.match(/^\s*&gt;\s/)){
+            while(list_layer[1]){
+              list_layer[1]--;
+              tag_temp += '</ul>';
+            }
+
+            bq_flag = false;
+          }
+        }
+
+        if(list_layer[0]){
+          if(l.match(/^\s+(\-|\*)\s/)){
+            l = l.replace(/^\s+(\-|\*)\s/, ((list_layer[0] != 2) ? '<ul>' : '') + '<li>');
+            list_layer[0] = 2;
+            block_flag = true;
+          }
+
+          else if(list_layer[0] == 2 && l.match(/^(\-|\*)\s/)){
+            list_layer[0] = 1;
+            l = l.replace(/^(\-|\*)\s/, '</ul><li>');
+            block_flag = true;
+          }
+
+          else if(!l.match(/^(\-|\*)\s/)){
+            while(list_layer[0]){
+              list_layer[0]--;
+              tag_temp += '</ul>';
+            }
+          }
+        }
+
+        l = l.replace(/^\s*/, '');
+
+        if(l.match(/^#.*\s/)){
+
+          for(str of l){
+            if(str == '#'){
+              hn++;
+            }
+
+            else{
+              break;
+            }
+          }
+
+          block_flag = true;
+          l = l.substring(hn + 1);
+        }
+
+        if(l.match(/^\\(\-|\*)\s/)){
+          l = l.replace("\\-\s", '- ');
+          l = l.replace("\\*\s", '* ');
+        }
+
+        else if(l.match(/^(\-|\*)\s/)){
+          l = (!list_layer[0] ? '<ul>' : '')
+            + '<li>' + l.substring(2);
+          list_layer[0] = 1;
+          block_flag = true;
+        }
+
+        if(l.match(/^\\&gt;\s/)){
+          l = l.replace('\\&gt;', '&gt;');
+        }
+
+        else if(l.match(/^&gt;\s/)){
+          block_flag = true;
+          l = l.substring(5);
+
+          if(l.match(/^(\-|\*)\s/)){
+            l = '<blockquote>'
+              + (!list_layer[1] ? '<ul>' : '') + '<li>' + l.substring(l.indexOf(/(\-|\*)/) + 3) + '</li></blockquote>';
+
+            list_layer[1] = 1;
           }
 
           else{
-            break;
+            l = '<blockquote>' + l + '</blockquote>';
           }
+
+          bq_flag = true;
         }
 
-        return_txt += '<h' + n + '>' + t.substr(n + 1) + '</h' + n + '>';
+        txt += tag_temp
+          + (hn ? '<h' + hn + '>' : '')
+          + l
+          + (list_layer[0] ? '</li>' + (hn ? '</ul>' : '') : '')
+          + (hn ? '</h' + hn + '>' : '')
+          + (block_flag ? '' : '<br>');
       }
 
-      else if(t.match(/^\&gt;\s/)){
-        return_txt += '<blockquote>' + t.substr(5) + '</blockquote>';
-      }
-
-      else if(t.match(/^(\-|\*)\s/)){
-        block_type = 'list';
-        ul_num = 1;
-        return_txt += '<ul><li>' + t.substr(2) + '</li>';
-      }
-
-      else{
-        return_txt += '<p>' + t + '</p>';
-      }
-    }
-
-    else if(block_type == 'code'){
-      if(t == '```'){
-        block_type = '';
-        return_txt += '</div>';
-      }
-
-      else{
-        return_txt += '<p>' + t + '</p>';
+      for(ll of list_layer){
+        while(ll){
+          txt += '</ul>';
+          ll--;
+        }
       }
     }
   }
 
-  const block_list = {
-    'list': 'ul',
-    'code': 'div'
-  };
+  return txt;
+}
 
-  if(block_type){
-    return_txt += '</' + block_list[block_type] + '>';
 
-    if(ul_num == 2){
-      return_txt += '</ul>';
+function SandRep(t, st1, st2, rt1, rt2){
+  let pos = -1;
+  let s_pos = 0;
+  let len = st1.length;
+
+  while(s_pos > pos){
+    let ss = t.substring(s_pos).match(st2);
+    let ss_len = -1;
+
+    if(ss){
+      let ss_len = ss.index + ss[0].length;
+      console.log(ss);
+
+      t = t.substring(0, ss_len - len)
+        + rt2
+        + t.substring(ss_len);
+      t = t.substring(0, ss.index)
+        + rt1
+        + t.substring(ss.index + len);
     }
+
+    else{
+      break;
+    }
+    pos = s_pos;
+    s_pos = ss_len;
   }
 
-  return return_txt;
+  return t;
 }
