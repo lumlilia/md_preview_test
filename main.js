@@ -37,15 +37,13 @@ function OnPvBtn(e){
 function OnRsBtn(e){
   if(confirm('入力欄をリセットしますか？')){
     ta.value = '';
+    pv_box.innerHTML = '';
   }
 }
 
 
 function Convert(txt){
   const lines = txt.split("\n");
-  let blocks = Math.floor(lines.filter((el) => el.startsWith('```')).length / 2);
-  let block_type = '';
-  let ul_num = 0;
 
   const regs = [
     new RegExp('&', 'g'), '&amp;',
@@ -59,173 +57,146 @@ function Convert(txt){
     txt = txt.replace(regs[i], regs[i + 1]);
   }
 
-  txt = SandRep(txt, '```', new RegExp('```.+```', 's'), '"""', '"""');
+  let ret_txt = '';
 
-  let temps = txt.split('"""');
-  txt = '';
+  let reg_s = /^```.*$/m;
+  let reg_e = /^```$/m;
+  const blocks = [];
+  let pos = 0;
 
-  for(let i = 0; i < temps.length; i++){
-    if(!temps[i]){
-      txt += '<br>';
+  while(1){
+    let t_ss = txt.substring(pos);
+    const m = t_ss.match(reg_s);
+    if(m == null){
+      blocks.push(t_ss);
+      break;
+    }
+
+
+    const m_e = txt.substring(pos + m.index + 3).match(reg_e);
+    if(m_e == null){
+      blocks.push(t_ss);
+      break;
+    }
+
+    blocks.push(t_ss.substring(0, m.index), m_e.input.substring(0, m_e.index - 1));
+    pos += m.index + m_e.index + 7;
+  }
+
+
+  let blocks_len = blocks.length;
+
+  for(let i = 0; i < blocks_len; i++){
+    if(i % 2){
+      if(blocks[i][0] != '\n'){
+        blocks[i] = blocks[i].replace(/^.*$/m, '<!-- ' + blocks[i].match(/^.*$/m) + ' -->');
+      }
+      blocks[i] = blocks[i].replace('\n', '');
+      ret_txt += '<pre><code>' + blocks[i] + '</code></pre>';
       continue;
     }
 
-    else if(i % 2){
-      txt += '<div class="code_block">' + temps[i].replace(/(?!^.*)\n/g, '<br>') + '</div>';
-    }
-
-    else{
-      temps[i] = temps[i].replace(/\\_/g, '""');
-      temps[i] = temps[i].replace(/\\\*/g, "''");
-
-      temps[i] = SandRep(temps[i], '__', /__.+(__)(?!_)/, '<u>', '</u>');
-      temps[i] = SandRep(temps[i], '_', /_.+_(?!_)/, '<i>', '</i>');
-      temps[i] = SandRep(temps[i], '**', /\*\*.+(\*\*)(?!\*)/, '<b>', '</b>');
-      temps[i] = SandRep(temps[i], '*', /\*.+\*(?!\*)/, '<i>', '</i>');
-
-      temps[i] = temps[i].replace(/""/g, '_');
-      temps[i] = temps[i].replace(/''/g, "*");
-
-      let lines = temps[i].split("\n");
-      let list_layer = [0, 0];
-      let bq_flag = false;
-      let tag_temp = '';
-
-
-      for(l of lines){
-        let hn = 0;
-        let block_flag = false;
-
-        if(bq_flag){
-          if(!l.match(/^\s*&gt;\s/)){
-            while(list_layer[1]){
-              list_layer[1]--;
-              tag_temp += '</ul>';
-            }
-
-            bq_flag = false;
-          }
-        }
-
-        if(list_layer[0]){
-          if(l.match(/^\s+(\-|\*)\s/)){
-            l = l.replace(/^\s+(\-|\*)\s/, ((list_layer[0] != 2) ? '<ul>' : '') + '<li>');
-            list_layer[0] = 2;
-            block_flag = true;
-          }
-
-          else if(list_layer[0] == 2 && l.match(/^(\-|\*)\s/)){
-            list_layer[0] = 1;
-            l = l.replace(/^(\-|\*)\s/, '</ul><li>');
-            block_flag = true;
-          }
-
-          else if(!l.match(/^(\-|\*)\s/)){
-            while(list_layer[0]){
-              list_layer[0]--;
-              tag_temp += '</ul>';
-            }
-          }
-        }
-
-        l = l.replace(/^\s*/, '');
-
-        if(l.match(/^#.*\s/)){
-
-          for(str of l){
-            if(str == '#'){
-              hn++;
-            }
-
-            else{
-              break;
-            }
-          }
-
-          block_flag = true;
-          l = l.substring(hn + 1);
-        }
-
-        if(l.match(/^\\(\-|\*)\s/)){
-          l = l.replace("\\-\s", '- ');
-          l = l.replace("\\*\s", '* ');
-        }
-
-        else if(l.match(/^(\-|\*)\s/)){
-          l = (!list_layer[0] ? '<ul>' : '')
-            + '<li>' + l.substring(2);
-          list_layer[0] = 1;
-          block_flag = true;
-        }
-
-        if(l.match(/^\\&gt;\s/)){
-          l = l.replace('\\&gt;', '&gt;');
-        }
-
-        else if(l.match(/^&gt;\s/)){
-          block_flag = true;
-          l = l.substring(5);
-
-          if(l.match(/^(\-|\*)\s/)){
-            l = '<blockquote>'
-              + (!list_layer[1] ? '<ul>' : '') + '<li>' + l.substring(l.indexOf(/(\-|\*)/) + 3) + '</li></blockquote>';
-
-            list_layer[1] = 1;
-          }
-
-          else{
-            l = '<blockquote>' + l + '</blockquote>';
-          }
-
-          bq_flag = true;
-        }
-
-        txt += tag_temp
-          + (hn ? '<h' + hn + '>' : '')
-          + l
-          + (list_layer[0] ? '</li>' + (hn ? '</ul>' : '') : '')
-          + (hn ? '</h' + hn + '>' : '')
-          + (block_flag ? '' : '<br>');
+    let temp = '';
+    let mode = 0;
+    for(let line of blocks[i].split('\n')){
+      let b_flag = false;
+      temp = '';
+      if(line == '---'){
+        line = '<hr />';
       }
 
-      for(ll of list_layer){
-        while(ll){
-          txt += '</ul>';
-          ll--;
+      line = CheckBlock(line, '#', 'h');
+      line = CheckBlock(line, '&gt;', '<blockquote>');
+
+      let line_s = CheckMark(line, '`', 'code', 1);
+      line = '';
+      for(let j = 0; j < line_s.length; j++){
+        if(!(j % 2)){
+          line_s[j] = CheckMark(line_s[j], '\\*\\*', 'em', 0);
+          line_s[j] = CheckMark(line_s[j], '\\*', 'strong', 0);
         }
+
+        line += line_s[j];
       }
+
+      ret_txt += line;
     }
   }
 
-  return txt;
+  return ret_txt;
 }
 
 
-function SandRep(t, st1, st2, rt1, rt2){
-  let pos = -1;
-  let s_pos = 0;
-  let len = st1.length;
+function CheckMark(t, s, o, mode){
+  let pos = 0;
+  const s_len = s.replace(/\\/g, '').length;
+  const regs = [
+    new RegExp('(?<!\\\\)' + s + '[^' + s + ']+'),
+    new RegExp('(?<!(' + s + '|\\\\))' + s)
+  ];
 
-  while(s_pos > pos){
-    let ss = t.substring(s_pos).match(st2);
-    let ss_len = -1;
+  let ret_t = '';
+  let ret_a = [];
 
-    if(ss){
-      let ss_len = ss.index + ss[0].length;
+  while(1){
+    let t_ss = t.substring(pos);
+    let m = t_ss.match(regs[0]);
+    if(m == null){
+      if(mode){
+        ret_a.push(t_ss);
+      }
+      else{
+        ret_t += t_ss;
+      }
+      break;
+    }
 
-      t = t.substring(0, ss_len - len)
-        + rt2
-        + t.substring(ss_len);
-      t = t.substring(0, ss.index)
-        + rt1
-        + t.substring(ss.index + len);
+    let m_e = t_ss.substring(m.index + s_len).match(regs[1]);
+
+    if(m_e == null){
+      if(mode){
+        ret_a.push(t_ss);
+      }
+      else{
+        ret_t += t_ss;
+      }
+      break;
+    }
+
+    let ret1 = t_ss.substring(0, m.index);
+    let ret2 = '<' + o + '>'
+      + m_e.input.substring(0, m_e.index)
+      + '</' + o + '>';
+
+    if(mode){
+      ret_a.push(ret1, ret2);
     }
 
     else{
-      break;
+      ret_t += ret1 + ret2;
     }
-    pos = s_pos;
-    s_pos = ss_len;
+
+    pos += m.index + m_e.index + s_len * 2;
+  }
+
+  return (mode ? ret_a : ret_t);
+}
+
+function CheckBlock(t, s, o){
+  let flag = false;
+  let m = t.match(new RegExp('^\\\s*(?<!\\\\)' + s + ((s == '#') ? '+' : '') + '\\\s'));
+  if(m != null){
+    flag = true;
+    let len = ((s == '#') ? m[0].match(/[#]+/)[0].length : 0);
+    if(len > 6){
+      len = 6;
+    }
+    if(len){
+      o = '<' + o + (len ? len : '') + '>';
+    }
+
+    t = t.replace(RegExp('^\\\s*' + s + '+\\\s'), o);
+    t += o[0] + '/' + o.substring(1);
   }
 
   return t;
