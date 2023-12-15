@@ -96,6 +96,26 @@ function Convert(txt){
       continue;
     }
 
+    if(!blocks[i]){
+      continue;
+    }
+    while(1){
+      let reg = /^\s*#{1,6}(?!\n)\s/m;
+      let m = blocks[i].match(reg);
+      if(m == null){
+        break;
+      }
+      let n = m[0].match(/#+/)[0].length;
+      blocks[i] = blocks[i].replace(reg, '<h' + n + '>');
+      blocks[i] = blocks[i].replace(new RegExp('(?<=^<h' + n + '>.*)$', 'm'), '</h' + n + '>');
+    }
+
+    blocks[i] = blocks[i].replace(/^(?!<h[1-6]>)/g, '<br />');
+    blocks[i] = blocks[i].replace(/((?<!(<\/h[1-6]>|\s\s))\n|(?<!<\/h[1-6]>)$)/g, '<br />');
+    alert(blocks[i]);
+
+    ret_txt += blocks[i];
+    continue;
     let temp = '';
     let mode = 0;
     for(let line of blocks[i].split('\n')){
